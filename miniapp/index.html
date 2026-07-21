@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gofile Waifu Uploader</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg-1: #0a0612;
+  --bg-2: #1a0d2e;
+  --bg-3: #2d1b3d;
+  --pink: #ff7eb3;
+  --pink-soft: #ffa5c3;
+  --pink-deep: #e85d9d;
+  --purple: #9d4edd;
+  --accent: #ff9eb5;
+  --text: #fef0f5;
+  --text-dim: #c4a8b8;
+  --text-faint: #8a7080;
+  --success: #6ee7a8;
+  --error: #ff6b8a;
+  --glass: rgba(255, 158, 181, 0.06);
+  --glass-border: rgba(255, 158, 181, 0.18);
+  --shadow: 0 8px 32px rgba(255, 126, 179, 0.12);
+}
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg-1);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at top, rgba(157, 78, 221, 0.18), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(255, 126, 179, 0.12), transparent 50%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  background-attachment: fixed;
+  padding: 16px 14px 24px;
+  position: relative;
+}
+/* Floating sakura petals */
+.petal {
+  position: fixed;
+  top: -20px;
+  font-size: 18px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.4;
+  animation: fall linear infinite;
+}
+@keyframes fall {
+  0% { transform: translateY(-20px) rotate(0deg) translateX(0); opacity: 0; }
+  10% { opacity: 0.4; }
+  90% { opacity: 0.4; }
+  100% { transform: translateY(110vh) rotate(720deg) translateX(80px); opacity: 0; }
+}
+
+.app {
+  max-width: 500px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 8px 0 16px;
+}
+.header .waifu-emoji {
+  font-size: 48px;
+  display: inline-block;
+  animation: bob 3s ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px rgba(255, 126, 179, 0.4));
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-6px) rotate(2deg); }
+}
+.header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 8px;
+  background: linear-gradient(135deg, var(--pink) 0%, var(--purple) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.5px;
+}
+.header .subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* Card */
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--glass-border);
+  border-radius: 16px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: rgba(255, 158, 181, 0.03);
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--pink);
+  background: rgba(255, 158, 181, 0.08);
+  transform: translateY(-2px);
+}
+.drop-zone .icon {
+  font-size: 42px;
+  margin-bottom: 8px;
+  display: block;
+}
+.drop-zone .title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.drop-zone .hint {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.drop-zone input[type=file] {
+  display: none;
+}
+
+/* File info card */
+.file-info {
+  display: none;
+  background: rgba(157, 78, 221, 0.08);
+  border: 1px solid rgba(157, 78, 221, 0.2);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.file-info.show { display: block; }
+.file-info .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.file-info .file-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.file-info .meta { flex: 1; min-width: 0; }
+.file-info .name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-info .size {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.file-info .x {
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-faint);
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.file-info .x:hover { color: var(--error); background: rgba(255, 107, 138, 0.1); }
+
+/* Progress */
+.progress-section { display: none; margin-bottom: 14px; }
+.progress-section.show { display: block; }
+.progress-bar {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pink), var(--purple));
+  border-radius: 10px;
+  width: 0%;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer 1.8s linear infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.progress-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+.progress-stats .pct {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.3px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(255, 126, 179, 0.35);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 126, 179, 0.5);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-ghost {
+  background: rgba(255, 158, 181, 0.08);
+  color: var(--accent);
+  border: 1px solid var(--glass-border);
+}
+.btn-ghost:hover { background: rgba(255, 158, 181, 0.15); }
+.btn-success {
+  background: linear-gradient(135deg, #6ee7a8 0%, #38d39f 100%);
+  color: #0a3a25;
+  box-shadow: 0 4px 16px rgba(110, 231, 168, 0.3);
+}
+
+/* Result card */
+.result-card { display: none; text-align: center; }
+.result-card.show { display: block; }
+.result-card .check {
+  font-size: 56px;
+  margin-bottom: 8px;
+  animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+.result-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--success);
+}
+.result-card .result-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+.link-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.link-box:hover { background: rgba(0, 0, 0, 0.5); border-color: var(--pink); }
+.link-box .copy-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+  text-align: right;
+  font-family: -apple-system, sans-serif;
+}
+
+/* Info section */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.info-tile {
+  background: rgba(255, 158, 181, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.info-tile .num {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--pink), var(--purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.info-tile .lbl {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Error */
+.error-msg {
+  display: none;
+  background: rgba(255, 107, 138, 0.1);
+  border: 1px solid rgba(255, 107, 138, 0.3);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--error);
+  font-size: 13px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.error-msg.show { display: block; }
+
+/* Footer */
+.footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 16px 0 4px;
+}
+.footer .heart { color: var(--pink); }
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Hidden helper */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Floating sakura petals -->
+<div id="petals"></div>
+
+<div class="app">
+
+  <div class="header">
+    <span class="waifu-emoji">🌸</span>
+    <h1>Gofile Waifu Uploader</h1>
+    <div class="subtitle">Upload files up to <b>any size</b> directly from your browser</div>
+  </div>
+
+  <!-- Idle view -->
+  <div id="idleView">
+    <div class="card">
+      <div class="info-grid">
+        <div class="info-tile">
+          <div class="num">∞</div>
+          <div class="lbl">Size Limit</div>
+        </div>
+        <div class="info-tile">
+          <div class="num">Fast</div>
+          <div class="lbl">Multi-region</div>
+        </div>
+      </div>
+
+      <div class="drop-zone" id="dropZone">
+        <span class="icon">📁</span>
+        <div class="title">Tap to choose a file</div>
+        <div class="hint">or drop it here — no size limit, never touches Telegram</div>
+        <input type="file" id="fileInput">
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size: 13px; color: var(--text-dim); line-height: 1.6;">
+        <div style="font-weight: 600; color: var(--accent); margin-bottom: 8px;">✨ How it works</div>
+        <div>1. Pick any file (10MB, 10GB, 50GB — anything)</div>
+        <div>2. Browser uploads directly to <b>gofile.io</b> (bypasses Telegram's 2GB wall)</div>
+        <div>3. Link is sent back to your Telegram chat automatically</div>
+        <div>4. Cuteness delivered 🌸</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload view -->
+  <div id="uploadView" class="hidden">
+    <div class="card">
+      <div class="file-info show" id="fileInfo">
+        <div class="row">
+          <span class="file-icon" id="fileIcon">📄</span>
+          <div class="meta">
+            <div class="name" id="fileName">file.txt</div>
+            <div class="size" id="fileSize">0 B</div>
+          </div>
+          <span class="x" id="cancelBtn" title="Cancel">✕</span>
+        </div>
+      </div>
+
+      <div class="progress-section show" id="progressSection">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-stats">
+          <span id="speedStat">— MB/s</span>
+          <span class="pct" id="pctStat">0%</span>
+          <span id="etaStat">— left</span>
+        </div>
+      </div>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <button class="btn btn-ghost" id="cancelBtn2" style="margin-top: 10px;">
+        ✕ Cancel upload
+      </button>
+    </div>
+  </div>
+
+  <!-- Result view -->
+  <div id="resultView" class="hidden">
+    <div class="card result-card show">
+      <div class="check">✅</div>
+      <h2>Upload Complete!</h2>
+      <div class="result-sub">Your file is now live on gofile.io</div>
+
+      <div class="link-box" id="linkBox">
+        <span id="linkText">https://gofile.io/d/xxx</span>
+        <span class="copy-hint">tap to copy</span>
+      </div>
+
+      <button class="btn btn-primary" id="sendToChatBtn" style="margin-bottom: 10px;">
+        📤 Send link to chat
+      </button>
+      <button class="btn btn-ghost" id="uploadAnotherBtn">
+        🔄 Upload another file
+      </button>
+    </div>
+  </div>
+
+  <div class="footer">
+    Made with <span class="heart">♡</span> by Gofile Waifu Bot
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Initialize Telegram WebApp
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    if (tg.setHeaderColor) tg.setHeaderColor('#0a0612');
+    if (tg.setBackgroundColor) tg.setBackgroundColor('#0a0612');
+  }
+
+  // ---- Sakura petals ----
+  const petalContainer = document.getElementById('petals');
+  const petalChars = ['🌸', '🌷', '💐', '🌺'];
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'petal';
+    p.textContent = petalChars[i % petalChars.length];
+    p.style.left = (Math.random() * 100) + '%';
+    p.style.animationDuration = (10 + Math.random() * 10) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    p.style.fontSize = (12 + Math.random() * 14) + 'px';
+    petalContainer.appendChild(p);
+  }
+
+  // ---- State ----
+  let selectedFile = null;
+  let currentXhr = null;
+  let lastResultUrl = null;
+  let startTime = 0;
+  let lastLoaded = 0;
+  let lastTime = 0;
+
+  // ---- DOM refs ----
+  const idleView = document.getElementById('idleView');
+  const uploadView = document.getElementById('uploadView');
+  const resultView = document.getElementById('resultView');
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo = document.getElementById('fileInfo');
+  const fileIcon = document.getElementById('fileIcon');
+  const fileName = document.getElementById('fileName');
+  const fileSize = document.getElementById('fileSize');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const cancelBtn2 = document.getElementById('cancelBtn2');
+  const progressFill = document.getElementById('progressFill');
+  const pctStat = document.getElementById('pctStat');
+  const speedStat = document.getElementById('speedStat');
+  const etaStat = document.getElementById('etaStat');
+  const errorMsg = document.getElementById('errorMsg');
+  const linkBox = document.getElementById('linkBox');
+  const linkText = document.getElementById('linkText');
+  const sendToChatBtn = document.getElementById('sendToChatBtn');
+  const uploadAnotherBtn = document.getElementById('uploadAnotherBtn');
+
+  // ---- Helpers ----
+  function humanSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    if (b < 1073741824) return (b/1048576).toFixed(2) + ' MB';
+    if (b < 1099511627776) return (b/1073741824).toFixed(2) + ' GB';
+    return (b/1099511627776).toFixed(2) + ' TB';
+  }
+  function humanTime(sec) {
+    if (sec < 1) return '<1s';
+    if (sec < 60) return Math.ceil(sec) + 's';
+    if (sec < 3600) return Math.ceil(sec/60) + 'm';
+    return Math.ceil(sec/3600) + 'h';
+  }
+  function fileEmoji(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (['jpg','jpeg','png','gif','webp','bmp','tiff'].includes(ext)) return '🖼️';
+    if (['mp4','mkv','avi','mov','webm','flv','wmv'].includes(ext)) return '🎬';
+    if (['mp3','wav','flac','ogg','m4a','aac'].includes(ext)) return '🎵';
+    if (['zip','rar','7z','tar','gz','bz2','xz'].includes(ext)) return '🗜️';
+    if (['pdf','doc','docx','txt','md','rtf','odt'].includes(ext)) return '📄';
+    if (['apk','aab','ipa','deb','rpm','exe','msi'].includes(ext)) return '📦';
+    if (['js','ts','py','java','c','cpp','go','rs','rb','php','html','css'].includes(ext)) return '💻';
+    if (['iso','img','vmdk','qcow2'].includes(ext)) return '💿';
+    return '📁';
+  }
+  function showView(view) {
+    idleView.classList.add('hidden');
+    uploadView.classList.add('hidden');
+    resultView.classList.add('hidden');
+    view.classList.remove('hidden');
+  }
+  function showError(msg) {
+    errorMsg.textContent = '⚠️ ' + msg;
+    errorMsg.classList.add('show');
+  }
+  function hideError() { errorMsg.classList.remove('show'); }
+
+  // ---- File selection ----
+  function selectFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    hideError();
+    fileIcon.textContent = fileEmoji(file.name);
+    fileName.textContent = file.name;
+    fileSize.textContent = humanSize(file.size);
+    showView(uploadView);
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) selectFile(e.target.files[0]);
+  });
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+  });
+
+  // ---- Cancel ----
+  function cancelUpload() {
+    if (currentXhr) {
+      currentXhr.abort();
+      currentXhr = null;
+    }
+    selectedFile = null;
+    showView(idleView);
+  }
+  cancelBtn.addEventListener('click', cancelUpload);
+  cancelBtn2.addEventListener('click', cancelUpload);
+
+  // ---- Auto-start upload when file is selected ----
+  // Watch for view change to uploadView, then start
+  const observer = new MutationObserver(() => {
+    if (!uploadView.classList.contains('hidden') && selectedFile && !currentXhr && !lastResultUrl) {
+      startUpload();
+    }
+  });
+  observer.observe(uploadView, { attributes: true, attributeFilter: ['class'] });
+
+  // ---- Upload via XHR for progress tracking ----
+  const GOFILE_ENDPOINTS = [
+    'https://upload.gofile.io/uploadfile',
+    'https://upload-eu-par.gofile.io/uploadfile',
+    'https://upload-na-phx.gofile.io/uploadfile',
+    'https://upload-ap-sgp.gofile.io/uploadfile',
+  ];
+
+  function startUpload() {
+    if (!selectedFile) return;
+    hideError();
+    startTime = Date.now();
+    lastLoaded = 0;
+    lastTime = startTime;
+
+    const endpoint = GOFILE_ENDPOINTS[Math.floor(Math.random() * GOFILE_ENDPOINTS.length)];
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+
+    const xhr = new XMLHttpRequest();
+    currentXhr = xhr;
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const pct = (e.loaded / e.total) * 100;
+        progressFill.style.width = pct + '%';
+        pctStat.textContent = pct.toFixed(1) + '%';
+
+        // Speed calc
+        const now = Date.now();
+        const dt = (now - lastTime) / 1000;
+        if (dt >= 0.5) {
+          const db = e.loaded - lastLoaded;
+          const speed = db / dt; // bytes/sec
+          speedStat.textContent = humanSize(speed) + '/s';
+          if (speed > 0) {
+            const remaining = (e.total - e.loaded) / speed;
+            etaStat.textContent = humanTime(remaining) + ' left';
+          }
+          lastLoaded = e.loaded;
+          lastTime = now;
+        }
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      currentXhr = null;
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status === 200 && data.status === 'ok' && data.data && data.data.downloadPage) {
+          lastResultUrl = data.data.downloadPage;
+          showResult(data.data);
+        } else {
+          showError('Gofile error: ' + (data.status || 'unknown') + '. Try again.');
+        }
+      } catch (err) {
+        showError('Bad response from gofile. Try again.');
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      currentXhr = null;
+      showError('Network error. Check your connection and try again.');
+    });
+
+    xhr.addEventListener('abort', () => {
+      currentXhr = null;
+    });
+
+    xhr.addEventListener('timeout', () => {
+      currentXhr = null;
+      showError('Upload timed out. Try a different network or smaller file.');
+    });
+
+    xhr.open('POST', endpoint);
+    xhr.timeout = 0; // no timeout — 15GB takes long
+    xhr.send(fd);
+  }
+
+  // ---- Result ----
+  function showResult(data) {
+    linkText.textContent = data.downloadPage;
+    showView(resultView);
+    // haptic feedback
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  }
+
+  linkBox.addEventListener('click', () => {
+    navigator.clipboard.writeText(lastResultUrl).then(() => {
+      const old = linkText.textContent;
+      linkText.textContent = '✓ Copied to clipboard!';
+      setTimeout(() => { linkText.textContent = old; }, 1500);
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    });
+  });
+
+  sendToChatBtn.addEventListener('click', () => {
+    if (!lastResultUrl) return;
+    if (tg) {
+      // Send data back to bot — this closes the Mini App
+      tg.sendData(JSON.stringify({
+        type: 'gofile_upload',
+        url: lastResultUrl,
+        name: selectedFile ? selectedFile.name : 'file',
+        size: selectedFile ? selectedFile.size : 0,
+      }));
+    } else {
+      // Fallback: just open the URL
+      window.open(lastResultUrl, '_blank');
+    }
+  });
+
+  uploadAnotherBtn.addEventListener('click', () => {
+    selectedFile = null;
+    lastResultUrl = null;
+    progressFill.style.width = '0%';
+    pctStat.textContent = '0%';
+    speedStat.textContent = '— MB/s';
+    etaStat.textContent = '— left';
+    fileInput.value = '';
+    showView(idleView);
+  });
+
+  // ---- Page-load welcome ----
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+})();
+</script>
+</body>
+</html>

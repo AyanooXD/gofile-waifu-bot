@@ -1,0 +1,9 @@
+python-telegram-bot[ext,rate-limiter]==22.0
+aiohttp>=3.10.0
+aiofiles>=24.1.0
+python-dotenv>=1.0.1
+
+# Telethon bridge — for downloading files up to 2 GB (4 GB if sender is Premium)
+# PTB's cloud Bot API caps downloads at 20 MB; Telethon uses MTProto with no such cap.
+telethon>=1.36.0
+cryptg>=0.4.0           # C-based crypto accelerator — 10-50x faster downloads (latest is 0.6.x)

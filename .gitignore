@@ -1,0 +1,46 @@
+# Logs
+logs/
+*.log
+
+# Downloads (temp)
+downloads/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+
+# Telethon session (auto-generated on first run; contains auth keys)
+*.session
+*.session-journal
+bot_session*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Research / scratch
+RESEARCH_*.md
+NOTES_*.md
+scripts/

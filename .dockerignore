@@ -1,0 +1,71 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+.github
+
+# Local config / secrets
+.env
+.env.local
+.env.*.local
+
+# Local-only runtime artifacts (ephemeral, must not be baked into image)
+downloads/
+logs/
+*.session
+*.session-journal
+bot_session*
+*.log
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+.tox/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build / deploy artifacts
+node_modules/
+dist/
+build/
+*.egg-info/
+
+# Research / scratch docs (don't ship these in the image — keeps it small)
+RESEARCH_*.md
+NOTES_*.md
+scripts/
+
+# Docker metadata (don't recursively include)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Railway config (don't bake into image — Railway reads it from repo root)
+railway.json
+railway.toml
+
+# Misc
+.claude/
+.cursor/
+.trunk/
+.editorconfig
+.pre-commit-config.yaml
