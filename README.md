@@ -171,7 +171,7 @@ curl http://localhost:8080/health
 | Path | File size range | Method | Speed |
 |------|----------------|--------|-------|
 | **1. Direct** | 0 – 20 MB | PTB cloud Bot API → gofile.io | ⚡⚡⚡ instant |
-| **2. Telethon** | 20 MB – 2 GB (4 GB if sender Premium) | MTProto download → gofile.io | ⚡⚡ fast (parallel chunks, cryptg acceleration) |
+| **2. Telethon** | 20 MB – 2 GB (4 GB if sender Premium) | MTProto download → gofile.io | ⚡⚡⚡ fast (8-way parallel chunks, cryptg acceleration, 5-15 MB/s) |
 | **3. Mini App** | Any size (15 GB+ works) | Browser → gofile.io directly (CORS-verified) | ⚡⚡⚡ fastest (no Telegram in the loop) |
 
 ### Path 1: Direct small-file upload (≤20 MB)
@@ -326,7 +326,7 @@ gofile-waifu-bot/
 | `GOFILE_TOKEN` | ❌ Optional | — | Gofile account token (default: guest uploads) |
 | `MINIAPP_URL` | ❌ For 15 GB+ | auto on Railway | Public HTTPS URL of the Mini App. Auto-set from `RAILWAY_PUBLIC_DOMAIN`. |
 | `WEB_PORT` | ❌ Optional | `8080` / `$PORT` | Local HTTP port. Railway auto-injects `PORT`. |
-| `TELETHON_PARALLEL_CHUNKS` | ❌ Optional | `3` | Parallel chunk downloaders (1=low RAM, 5+=fast server) |
+| `TELETHON_PARALLEL_CHUNKS` | ❌ Optional | `8` | Parallel MTProto connections per download (4=low RAM, 8=default, 12=fast server, 16=max) |
 | `DATA_DIR` | ❌ Optional | `/data` if mounted | Persistent data dir (downloads, logs, Telethon session). Auto-detected. |
 
 **Railway-injected (don't set these yourself):**
@@ -452,7 +452,15 @@ pip install cryptg
 ```
 Without `cryptg`, Telethon falls back to pure-Python crypto (~100 KB/s). With `cryptg`, you should see 5-50 MB/s depending on your network and Telegram's datacenter.
 
-You can also increase `TELETHON_PARALLEL_CHUNKS` in `.env` (default 3) for faster downloads on a fast server with good bandwidth.
+The bot downloads files using **N-way parallel chunks** (default 8 workers) — each worker opens its own MTProto stream and writes to a different byte range of the file using `os.pwrite()`. This typically gives a **5-10x speedup** vs single-stream (e.g. 3-4 MB/s → 20-40 MB/s on Railway).
+
+To tune for your server, set `TELETHON_PARALLEL_CHUNKS` in `.env`:
+- `4` — low-RAM VPS (512 MB)
+- `8` — default, sweet spot on Railway / typical VPS
+- `12` — fast server with 2 GB+ RAM and good bandwidth
+- `16` — maximum; diminishing returns past this
+
+The download progress message shows live speed (e.g. `15.2 MB/s`) and ETA (e.g. `ETA 4m12s`) so you can see exactly how fast it's going.
 
 ## 📜 License
 

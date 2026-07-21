@@ -124,7 +124,7 @@ WEB_PORT = int(os.environ.get("PORT") or os.environ.get("WEB_PORT") or "8080")
 MINIAPP_FILE = BASE_DIR / "miniapp" / "index.html"
 
 # Telethon bridge performance tuning
-TELETHON_PARALLEL_CHUNKS = int(os.environ.get("TELETHON_PARALLEL_CHUNKS", "3"))
+TELETHON_PARALLEL_CHUNKS = int(os.environ.get("TELETHON_PARALLEL_CHUNKS", "8"))
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -768,7 +768,10 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         async with user_sem:
             async with GLOBAL_UPLOAD_SEM:
                 # Send initial "Downloading" status
-                download_method = "Telethon (MTProto)" if use_telethon else "Bot API"
+                download_method = (
+                    f"Telethon MTProto ({TELETHON_PARALLEL_CHUNKS}-way parallel)"
+                    if use_telethon else "Bot API"
+                )
                 status_msg = await msg.reply_text(
                     f"⬇️ <b>Downloading</b> <code>{safe_name}</code> ({size_str})\n"
                     f"<i>via {download_method}</i>…",
@@ -779,21 +782,49 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 # 1) Download from Telegram
                 dest_path = DOWNLOAD_DIR / f"{user.id}_{int(time.time())}_{name}"
 
-                download_progress_state = {"last_edit": 0.0}
+                # Track start time + last bytes for speed/ETA calculation
+                download_state = {
+                    "last_edit": 0.0,
+                    "start_time": time.monotonic(),
+                    "last_bytes": 0,
+                    "last_speed_time": time.monotonic(),
+                }
 
                 async def download_progress_cb(done: int, total: int) -> None:
-                    """Progress callback for Telethon download."""
+                    """Progress callback for Telethon download — shows speed + ETA."""
                     now = time.monotonic()
-                    if now - download_progress_state["last_edit"] < 1.0:
+                    if now - download_state["last_edit"] < 1.0:
                         return
-                    download_progress_state["last_edit"] = now
+                    download_state["last_edit"] = now
+
                     pct = done * 100 // total if total else 0
                     bar = progress_bar(done, total)
+
+                    # Calculate rolling speed (MB/s) over the last interval
+                    dt = now - download_state["last_speed_time"]
+                    db = done - download_state["last_bytes"]
+                    speed_text = ""
+                    eta_text = ""
+                    if dt > 0 and db > 0:
+                        speed_bps = db / dt
+                        speed_text = f" · {human_size(speed_bps)}/s"
+                        if speed_bps > 0 and total > done:
+                            eta_sec = (total - done) / speed_bps
+                            if eta_sec < 60:
+                                eta_text = f" · ETA {int(eta_sec)}s"
+                            elif eta_sec < 3600:
+                                eta_text = f" · ETA {int(eta_sec // 60)}m{int(eta_sec % 60)}s"
+                            else:
+                                eta_text = f" · ETA {int(eta_sec // 3600)}h{int((eta_sec % 3600) // 60)}m"
+                        download_state["last_speed_time"] = now
+                        download_state["last_bytes"] = done
+
                     try:
                         await status_msg.edit_text(
                             f"⬇️ <b>Downloading</b> <code>{safe_name}</code>\n"
-                            f"<code>{bar}</code> {pct}%  ({human_size(done)}/{human_size(total)})\n"
-                            f"<i>via Telethon MTProto</i>",
+                            f"<code>{bar}</code> {pct}%  "
+                            f"({human_size(done)}/{human_size(total)}{speed_text}{eta_text})\n"
+                            f"<i>via {download_method}</i>",
                             parse_mode=ParseMode.HTML,
                         )
                     except Exception:
